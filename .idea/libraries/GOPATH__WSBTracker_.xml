@@ -1,0 +1,20 @@
+<component name="libraryTable">
+  <library name="GOPATH &lt;WSBTracker&gt;">
+    <CLASSES>
+      <root url="file://$USER_HOME$/go/src/gopkg.in" />
+      <root url="file://$USER_HOME$/go/src/github.com" />
+      <root url="file://$USER_HOME$/go/src/.DS_Store" />
+    </CLASSES>
+    <SOURCES />
+    <excluded>
+      <root url="file://$USER_HOME$/go/src/github.com/golang/protobuf/proto/testdata" />
+      <root url="file://$USER_HOME$/go/src/github.com/bahusvel/COR-Framework-Go/.git" />
+      <root url="file://$USER_HOME$/go/src/gopkg.in/mgo.v2/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/ugorji/go/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/golang/protobuf/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/bahusvel/COR-Framework-Go/.idea" />
+      <root url="file://$PROJECT_DIR$" />
+      <root url="file://$USER_HOME$/go/src/github.com/golang/protobuf/protoc-gen-go/testdata" />
+    </excluded>
+  </library>
+</component>
