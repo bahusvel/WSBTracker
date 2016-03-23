@@ -1,4 +1,4 @@
-package datamodel
+package httpserver
 
 type Admin struct {
 	Name	string

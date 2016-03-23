@@ -1,4 +1,4 @@
-package datamodel
+package httpserver
 
 type Bus struct {
 	number		int32
