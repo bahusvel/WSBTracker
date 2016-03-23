@@ -46,11 +46,17 @@ func init() {
 	http.HandleFunc("/busses/available", bussesAvailable)
 	http.HandleFunc("/busses/drive", driveBus)
 	http.HandleFunc("/admin/driver", adminDriver)
+	http.HandleFunc("/logout", logout)
 }
 
 
 func home(w http.ResponseWriter, r *http.Request) {
     fmt.Fprint(w, "Hello, world!")
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	url, _ := user.LogoutURL(appengine.NewContext(r), "/")
+	w.Write([]byte("<a href=\"" + url + "\">Logout</a>"))
 }
 
 
