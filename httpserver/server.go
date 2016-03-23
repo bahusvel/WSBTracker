@@ -56,7 +56,8 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 func logout(w http.ResponseWriter, r *http.Request) {
 	url, _ := user.LogoutURL(appengine.NewContext(r), "/")
-	w.Write([]byte("<a href=\"" + url + "\">Logout</a>"))
+	//w.Write([]byte("<a href=\"" + url + "\">Logout</a>"))
+	http.Redirect(w, r, url, 301)
 }
 
 
@@ -69,7 +70,11 @@ func adminDriver(w http.ResponseWriter, r *http.Request){
 	}
 
 	operation := &DriverOperation{}
-	readRequest(w, r, operation)
+	if readRequest(r, operation) != nil{
+		writeResponse(w, "Unreadable Request")
+		log.Errorf(ctx, "Unredable request received")
+		return
+	}
 
 	dk := datastore.NewKey(ctx, "Driver", operation.TheDriver.Email, 0, nil)
 
@@ -95,7 +100,11 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 	u := user.Current(ctx)
 
 	driveBus := &DriveBus{}
-	readRequest(w, r, driveBus)
+	if readRequest(r, driveBus) != nil{
+		writeResponse(w, "Unreadable Request")
+		log.Errorf(ctx, "Unredable request received")
+		return
+	}
 
 	driver, uk := getDriver(ctx, u.Email)
 
@@ -135,7 +144,11 @@ func logPosition(w http.ResponseWriter, r *http.Request){
 	}
 
 	position := &Position{}
-	readRequest(w, r, position)
+	if readRequest(r, position) != nil {
+		writeResponse(w, "Unreadable Request")
+		log.Errorf(ctx, "Unredable request received")
+		return
+	}
 
 	driver, _ := getDriver(ctx, u.Email)
 	if driver.CurrentlyDriving == 0 {
@@ -153,16 +166,15 @@ func logPosition(w http.ResponseWriter, r *http.Request){
 	log.Infof(ctx, "Position Store Successful, latitude: %f, longitude: %f", position.Latitude, position.Longitude)
 }
 
-func readRequest(w http.ResponseWriter, r *http.Request, into interface{}){
+func readRequest(r *http.Request, into interface{}) error {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		writeResponse(w, "Unreadable Request")
-		return
+		return err
 	}
-	if json.Unmarshal(body, into) != nil {
-		writeResponse(w, "Unreadable Request")
-		return
+	if err = json.Unmarshal(body, into); err  != nil {
+		return err
 	}
+	return nil
 }
 
 func writeResponse(w http.ResponseWriter, message string){
