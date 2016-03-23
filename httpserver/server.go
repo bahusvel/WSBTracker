@@ -48,6 +48,12 @@ func init() {
 	http.HandleFunc("/admin/driver", adminDriver)
 }
 
+
+func home(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprint(w, "Hello, world!")
+}
+
+
 func adminDriver(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
 	u := user.Current(ctx)
@@ -56,17 +62,8 @@ func adminDriver(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		writeResponse(w, "Unreadable Request")
-		return
-	}
-
 	operation := &DriverOperation{}
-	if json.Unmarshal(body, operation) != nil {
-		writeResponse(w, "Unreadable Request")
-		return
-	}
+	readRequest(w, r, operation)
 
 	dk := datastore.NewKey(ctx, "Driver", operation.TheDriver.Email, 0, nil)
 
@@ -91,17 +88,8 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
 	u := user.Current(ctx)
 
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		writeResponse(w, "Unreadable Request")
-		return
-	}
-
 	driveBus := &DriveBus{}
-	if json.Unmarshal(body, driveBus) != nil {
-		writeResponse(w, "Unreadable Request")
-		return
-	}
+	readRequest(w, r, driveBus)
 
 	driver, uk := getDriver(ctx, u.Email)
 
@@ -132,6 +120,50 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 
 }
 
+func logPosition(w http.ResponseWriter, r *http.Request){
+	ctx := appengine.NewContext(r)
+	u := user.Current(ctx)
+	if u == nil {
+		writeResponse(w, "Unauthorized")
+		return
+	}
+
+	position := &Position{}
+	readRequest(w, r, position)
+
+	driver, _ := getDriver(ctx, u.Email)
+	if driver.CurrentlyDriving == 0 {
+		writeResponse(w, "Unauthorized")
+		return
+	}
+	_, btk := getBusTrip(ctx, driver.CurrentlyDriving)
+	ctime := int(time.Now().Unix())
+	k := datastore.NewKey(ctx, "Position", strconv.Itoa(ctime), 0, btk)
+	if _, err := datastore.Put(ctx, k, position); err != nil {
+		log.Errorf(ctx, "Failed to put in datastore %v", err)
+	}
+
+	writeResponse(w, "Success")
+	log.Infof(ctx, "Position Store Successful, latitude: %f, longitude: %f", position.Latitude, position.Longitude)
+}
+
+func readRequest(w http.ResponseWriter, r *http.Request, into interface{}){
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		writeResponse(w, "Unreadable Request")
+		return
+	}
+	if json.Unmarshal(body, into) != nil {
+		writeResponse(w, "Unreadable Request")
+		return
+	}
+}
+
+func writeResponse(w http.ResponseWriter, message string){
+	res, _ := json.Marshal(GenericResponse{Reponse:message})
+	w.Write(res)
+}
+
 func getDriver(ctx context.Context, email string) (*Driver, *datastore.Key){
 	uk := datastore.NewKey(ctx, "Driver", email, 0, nil)
 
@@ -159,49 +191,5 @@ func driverExists(drivers []string, driver string) bool{
 		}
 	}
 	return false
-}
-
-
-func writeResponse(w http.ResponseWriter, errmessege string){
-	res, _ := json.Marshal(GenericResponse{Reponse:errmessege})
-	w.Write(res)
-}
-
-func logPosition(w http.ResponseWriter, r *http.Request){
-	ctx := appengine.NewContext(r)
-	u := user.Current(ctx)
-	if u == nil {
-		writeResponse(w, "Unauthorized")
-		return
-	}
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		writeResponse(w, "Unreadable Request")
-		return
-	}
-	position := &Position{}
-	if json.Unmarshal(body, position) != nil {
-		writeResponse(w, "Unreadable Request")
-		return
-	}
-
-	driver, _ := getDriver(ctx, u.Email)
-	if driver.CurrentlyDriving == 0 {
-		writeResponse(w, "Unauthorized")
-		return
-	}
-	_, btk := getBusTrip(ctx, driver.CurrentlyDriving)
-	ctime := int(time.Now().Unix())
-	k := datastore.NewKey(ctx, "Position", strconv.Itoa(ctime), 0, btk)
-	if _, err := datastore.Put(ctx, k, position); err != nil {
-		log.Errorf(ctx, "Failed to put in datastore %v", err)
-	}
-
-	writeResponse(w, "Success")
-	log.Infof(ctx, "Position Store Successful, latitude: %f, longitude: %f", position.Latitude, position.Longitude)
-}
-
-func home(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprint(w, "Hello, world!")
 }
 
