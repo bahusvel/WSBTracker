@@ -46,7 +46,6 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 func logout(w http.ResponseWriter, r *http.Request) {
 	url, _ := user.LogoutURL(appengine.NewContext(r), "/")
-	//w.Write([]byte("<a href=\"" + url + "\">Logout</a>"))
 	http.Redirect(w, r, url, 301)
 }
 
@@ -58,9 +57,19 @@ func busLocation(w http.ResponseWriter, r *http.Request){
 		writeResponse(w, "Invalid Request")
 		return
 	}
-	btk := datastore.NewKey(ctx, "BusTrip", "", int64(nbr), nil)
+	bus, bk, err := getBus(ctx, nbr, "unitec")
+	if err != nil {
+		writeResponse(w, "Bus Not Found")
+		log.Errorf(ctx, "Bus Not Found")
+		return
+	}
+	if bus.CurrentTrip == "" {
+		writeResponse(w, "Bus Not Driving")
+		log.Errorf(ctx, "Bus Not Driving")
+		return
+	}
+	btk := datastore.NewKey(ctx, "BusTrip", bus.CurrentTrip, 0, bk)
 	pq := datastore.NewQuery("Position").Ancestor(btk)
-
 	var positions []Position
 	ct, _ := pq.Count(ctx)
 	pq.Offset(ct-1).Limit(1).GetAll(ctx, &positions)
@@ -148,11 +157,15 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 
 	driver, uk := getDriver(ctx, u.Email)
 
-	if driveBus.Operation == "drive" {
-		driver.CurrentlyDriving = btid
-	} else if driveBus.Operation == "undrive" {
-		driver.CurrentlyDriving = ""
+	switch driveBus.Operation {
+	case "drive":
+		driver.CurrentBusTrip = btid
+		driver.CurrentBus = driveBus.Bus.Number
+	case "undrive":
+		driver.CurrentBusTrip = ""
+		driver.CurrentBus = 0
 	}
+
 	if _, err := datastore.Put(ctx, uk, driver); err != nil{
 		log.Errorf(ctx, "Failed to put in datastore %v", err)
 	}
@@ -168,20 +181,18 @@ func logPosition(w http.ResponseWriter, r *http.Request){
 		writeResponse(w, "Unauthorized")
 		return
 	}
-
 	position := &Position{}
 	if readRequest(r, position) != nil {
 		writeResponse(w, "Unreadable Request")
 		log.Errorf(ctx, "Unredable request received")
 		return
 	}
-
 	driver, _ := getDriver(ctx, u.Email)
-	if driver.CurrentlyDriving == "" {
+	if driver.CurrentBusTrip == "" {
 		writeResponse(w, "Not Driving Anything")
 		return
 	}
-	err := storePosition(ctx, driver.CurrentlyDriving, position, "unitec")
+	err := storePosition(ctx, driver.CurrentBusTrip, driver.CurrentBus, position, "unitec")
 	if err != nil {
 		writeResponse(w, "Position Store Failed")
 		return

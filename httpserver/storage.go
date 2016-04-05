@@ -38,10 +38,11 @@ type Organization struct {
 }
 
 type Driver struct {
-	Email				string
-	Name 				string
-	CurrentlyDriving	string
-	AllowedToDrive		[]int
+	Email          string
+	Name           string
+	CurrentBusTrip string
+	CurrentBus		int
+	AllowedToDrive []int
 }
 
 type BusTrip struct {
@@ -62,10 +63,7 @@ func getDriver(ctx context.Context, email string) (*Driver, *datastore.Key){
 }
 
 func newOrGetBusTrip(ctx context.Context, busNumber int, organizationid string) (string, error){
-	ok := datastore.NewKey(ctx, "Organization", organizationid, 0, nil)
-	bk := datastore.NewKey(ctx, "Bus", "", int64(busNumber), ok)
-	var bus Bus
-	err := datastore.Get(ctx, bk, &bus)
+	bus, bk, err := getBus(ctx, busNumber, organizationid)
 	if err != nil {
 		return "", err
 	}
@@ -79,7 +77,8 @@ func newOrGetBusTrip(ctx context.Context, busNumber int, organizationid string) 
 	if err != nil {
 		return "", err
 	}
-	err = storeBus(ctx, &bus, organizationid)
+	bus.CurrentTrip = btid
+	err = storeBus(ctx, bus, organizationid)
 	return btid, err
 }
 
@@ -90,10 +89,18 @@ func storeBus(ctx context.Context, bus *Bus, organizationid string) error{
 	return err
 }
 
-func storePosition(ctx context.Context, btid string, position *Position, organizationid string) error {
+func getBus(ctx context.Context, busNumber int, organizationid string) (*Bus, *datastore.Key, error){
+	ok := datastore.NewKey(ctx, "Organization", organizationid, 0, nil)
+	bk := datastore.NewKey(ctx, "Bus", "", int64(busNumber), ok)
+	var bus Bus
+	err := datastore.Get(ctx, bk, &bus)
+	return &bus, bk, err
+}
+
+func storePosition(ctx context.Context, btid string, busNumber int,position *Position, organizationid string) error {
 	ctime := int(time.Now().Unix())
 	position.Time = ctime
-	_, btk := getBusTrip(ctx, btid, organizationid)
+	_, btk := getBusTrip(ctx, btid, busNumber, organizationid)
 	k := datastore.NewKey(ctx, "Position", strconv.Itoa(ctime), 0, btk)
 	if _, err := datastore.Put(ctx, k, position); err != nil {
 		log.Errorf(ctx, "Failed to put in datastore %v", err)
@@ -102,9 +109,10 @@ func storePosition(ctx context.Context, btid string, position *Position, organiz
 	return nil
 }
 
-func getBusTrip(ctx context.Context, btid string, organizationid string) (*BusTrip, *datastore.Key) {
+func getBusTrip(ctx context.Context, btid string, busNumber int, organizationid string) (*BusTrip, *datastore.Key) {
 	ok := datastore.NewKey(ctx, "Organization", organizationid, 0, nil)
-	btk := datastore.NewKey(ctx, "BusTrip", btid, 0, ok)
+	bk := datastore.NewKey(ctx, "Bus", "", int64(busNumber), ok)
+	btk := datastore.NewKey(ctx, "BusTrip", btid, 0, bk)
 	trip := new(BusTrip)
 	if datastore.Get(ctx, btk, trip) != nil {
 		return nil, btk
