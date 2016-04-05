@@ -9,22 +9,9 @@ import (
 	"google.golang.org/appengine/log"
 	"io/ioutil"
 	"encoding/json"
-	"golang.org/x/net/context"
 	"strconv"
-	"time"
+	//"golang.org/x/net/context"
 )
-
-type BusTrip struct {
-	BusNumber		int32
-	Drivers 		[]string
-}
-
-type Position struct {
-	Time		int32
-	Latitude	float64
-	Longitude	float64
-}
-
 
 type GenericResponse struct {
 	Reponse		string
@@ -85,7 +72,7 @@ func busLocation(w http.ResponseWriter, r *http.Request){
 func adminBus(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
 	busOp := &BusOperation{}
-	if readRequest(r, driveBus) != nil{
+	if readRequest(r, busOp) != nil{
 		writeResponse(w, "Unreadable Request")
 		log.Errorf(ctx, "Unredable request received")
 		return
@@ -93,12 +80,18 @@ func adminBus(w http.ResponseWriter, r *http.Request){
 
 	switch busOp.Operation {
 	case "add":
-
+		err := storeBus(ctx, &busOp.Bus, "unitec")
+		if err != nil {
+			writeResponse(w, "Failed")
+			log.Errorf(ctx, "Bus Not Stored", err)
+			return
+		}
 	default:
 		writeResponse(w, "Operation Not Supported")
 		log.Errorf(ctx, "Operation Not Supported")
 		return
 	}
+	writeResponse(w, "Success")
 }
 
 func adminDriver(w http.ResponseWriter, r *http.Request){
@@ -146,32 +139,25 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
+	btid, err := newOrGetBusTrip(ctx, driveBus.Bus.Number, "unitec")
+	if err != nil {
+		log.Errorf(ctx, "Saving Bus Trip Failed", err)
+		writeResponse(w, "Failed")
+		return
+	}
+
 	driver, uk := getDriver(ctx, u.Email)
 
 	if driveBus.Operation == "drive" {
-		driver.CurrentlyDriving = driveBus.Bus.Number
+		driver.CurrentlyDriving = btid
 	} else if driveBus.Operation == "undrive" {
-		driver.CurrentlyDriving = 0
+		driver.CurrentlyDriving = ""
 	}
 	if _, err := datastore.Put(ctx, uk, driver); err != nil{
 		log.Errorf(ctx, "Failed to put in datastore %v", err)
 	}
 
-	trip, btk := getBusTrip(ctx, driveBus.Bus.Number)
-	if trip == nil {
-		trip = new(BusTrip)
-		log.Infof(ctx, "Trip Does Not Exist")
-		trip.BusNumber = driveBus.Bus.Number
-		trip.Drivers = []string{driver.Email}
-	} else {
-		if !driverExists(trip.Drivers, driver.Email) {
-			trip.Drivers = append(trip.Drivers, driver.Email)
-		}
-	}
-	if _, err := datastore.Put(ctx, btk, trip); err != nil{
-		log.Errorf(ctx, "Failed to put in datastore %v", err)
-	}
-	writeResponse(w, "Success")
+	writeResponse(w, btid)
 
 }
 
@@ -191,20 +177,20 @@ func logPosition(w http.ResponseWriter, r *http.Request){
 	}
 
 	driver, _ := getDriver(ctx, u.Email)
-	if driver.CurrentlyDriving == 0 {
-		writeResponse(w, "Unauthorized")
+	if driver.CurrentlyDriving == "" {
+		writeResponse(w, "Not Driving Anything")
 		return
 	}
-	_, btk := getBusTrip(ctx, driver.CurrentlyDriving)
-	ctime := int(time.Now().Unix())
-	k := datastore.NewKey(ctx, "Position", strconv.Itoa(ctime), 0, btk)
-	if _, err := datastore.Put(ctx, k, position); err != nil {
-		log.Errorf(ctx, "Failed to put in datastore %v", err)
+	err := storePosition(ctx, driver.CurrentlyDriving, position, "unitec")
+	if err != nil {
+		writeResponse(w, "Position Store Failed")
+		return
 	}
-
 	writeResponse(w, "Success")
 	log.Infof(ctx, "Position Store Successful, latitude: %f, longitude: %f", position.Latitude, position.Longitude)
 }
+
+
 
 func readRequest(r *http.Request, into interface{}) error {
 	body, err := ioutil.ReadAll(r.Body)
@@ -220,26 +206,6 @@ func readRequest(r *http.Request, into interface{}) error {
 func writeResponse(w http.ResponseWriter, message string){
 	res, _ := json.Marshal(GenericResponse{Reponse:message})
 	w.Write(res)
-}
-
-func getDriver(ctx context.Context, email string) (*Driver, *datastore.Key){
-	uk := datastore.NewKey(ctx, "Driver", email, 0, nil)
-
-	driver := new(Driver)
-	err := datastore.Get(ctx, uk, driver)
-	if err != nil || driver.Email != email{
-		return nil, uk
-	}
-	return driver, uk
-}
-
-func getBusTrip(ctx context.Context, busNumber int32) (*BusTrip, *datastore.Key) {
-	btk := datastore.NewKey(ctx, "BusTrip", "", int64(busNumber), nil)
-	trip := new(BusTrip)
-	if datastore.Get(ctx, btk, trip) != nil {
-		return nil, btk
-	}
-	return trip, btk
 }
 
 func driverExists(drivers []string, driver string) bool{

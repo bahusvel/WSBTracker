@@ -14,6 +14,7 @@
       <root url="file://$USER_HOME$/go/src/golang.org/x/net/html/charset/testdata" />
       <root url="file://$USER_HOME$/go/src/google.golang.org/appengine/.git" />
       <root url="file://$USER_HOME$/go/src/golang.org/x/net/http2/testdata" />
+      <root url="file://$USER_HOME$/go/src/github.com/nu7hatch/gouuid/.git" />
       <root url="file://$USER_HOME$/go/src/github.com/bahusvel/COR-Framework-Go/.git" />
       <root url="file://$USER_HOME$/go/src/golang.org/x/net/.git" />
       <root url="file://$USER_HOME$/go/src/gopkg.in/mgo.v2/.git" />
