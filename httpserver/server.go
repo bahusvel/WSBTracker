@@ -17,26 +17,27 @@ import (
 type BusTrip struct {
 	BusNumber		int32
 	Drivers 		[]string
-	LocationTrace	[]Position
 }
 
 type Position struct {
+	Time		int32
 	Latitude	float64
 	Longitude	float64
 }
+
 
 type GenericResponse struct {
 	Reponse		string
 }
 
-type DriveBus struct {
-	BusNumber	int32
-	Drive		bool
-}
-
 type DriverOperation struct{
 	TheDriver 		Driver
 	Operation 		string
+}
+
+type BusOperation struct {
+	Bus			Bus
+	Operation	string
 }
 
 
@@ -45,7 +46,9 @@ func init() {
 	http.HandleFunc("/position/log", logPosition)
 	http.HandleFunc("/busses/available", bussesAvailable)
 	http.HandleFunc("/busses/drive", driveBus)
+	http.HandleFunc("/busses/location", busLocation)
 	http.HandleFunc("/admin/driver", adminDriver)
+	http.HandleFunc("/admin/bus", adminBus)
 	http.HandleFunc("/logout", logout)
 }
 
@@ -60,6 +63,43 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, 301)
 }
 
+func busLocation(w http.ResponseWriter, r *http.Request){
+	ctx := appengine.NewContext(r)
+	query := r.URL.Query()
+	nbr, err := strconv.Atoi(query.Get("busNumber"))
+	if err != nil {
+		writeResponse(w, "Invalid Request")
+		return
+	}
+	btk := datastore.NewKey(ctx, "BusTrip", "", int64(nbr), nil)
+	pq := datastore.NewQuery("Position").Ancestor(btk)
+
+	var positions []Position
+	ct, _ := pq.Count(ctx)
+	pq.Offset(ct-1).Limit(1).GetAll(ctx, &positions)
+
+	res, _ := json.Marshal(positions[0])
+	w.Write(res)
+}
+
+func adminBus(w http.ResponseWriter, r *http.Request){
+	ctx := appengine.NewContext(r)
+	busOp := &BusOperation{}
+	if readRequest(r, driveBus) != nil{
+		writeResponse(w, "Unreadable Request")
+		log.Errorf(ctx, "Unredable request received")
+		return
+	}
+
+	switch busOp.Operation {
+	case "add":
+
+	default:
+		writeResponse(w, "Operation Not Supported")
+		log.Errorf(ctx, "Operation Not Supported")
+		return
+	}
+}
 
 func adminDriver(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
@@ -99,7 +139,7 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
 	u := user.Current(ctx)
 
-	driveBus := &DriveBus{}
+	driveBus := &BusOperation{}
 	if readRequest(r, driveBus) != nil{
 		writeResponse(w, "Unreadable Request")
 		log.Errorf(ctx, "Unredable request received")
@@ -108,20 +148,20 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 
 	driver, uk := getDriver(ctx, u.Email)
 
-	if driveBus.Drive {
-		driver.CurrentlyDriving = driveBus.BusNumber
-	} else {
+	if driveBus.Operation == "drive" {
+		driver.CurrentlyDriving = driveBus.Bus.Number
+	} else if driveBus.Operation == "undrive" {
 		driver.CurrentlyDriving = 0
 	}
 	if _, err := datastore.Put(ctx, uk, driver); err != nil{
 		log.Errorf(ctx, "Failed to put in datastore %v", err)
 	}
 
-	trip, btk := getBusTrip(ctx, driveBus.BusNumber)
+	trip, btk := getBusTrip(ctx, driveBus.Bus.Number)
 	if trip == nil {
 		trip = new(BusTrip)
 		log.Infof(ctx, "Trip Does Not Exist")
-		trip.BusNumber = driveBus.BusNumber
+		trip.BusNumber = driveBus.Bus.Number
 		trip.Drivers = []string{driver.Email}
 	} else {
 		if !driverExists(trip.Drivers, driver.Email) {

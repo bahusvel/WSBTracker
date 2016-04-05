@@ -14,7 +14,7 @@ handlers:
 
 - url: /admin/.*
   script: _go_app
-  login: admin
+  login: required
 
 - url: /.*
   script: _go_app
