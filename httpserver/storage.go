@@ -49,6 +49,7 @@ type BusTrip struct {
 	ID				string
 	BusNumber		int
 	Drivers 		[]string
+	Children		[]Child
 }
 
 func getDriver(ctx context.Context, email string) (*Driver, *datastore.Key){

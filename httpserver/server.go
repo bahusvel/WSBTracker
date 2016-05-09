@@ -36,12 +36,30 @@ func init() {
 	http.HandleFunc("/busses/location", busLocation)
 	http.HandleFunc("/admin/driver", adminDriver)
 	http.HandleFunc("/admin/bus", adminBus)
+	http.HandleFunc("/position/test", positionTest)
 	http.HandleFunc("/logout", logout)
 }
 
 
 func home(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprint(w, "Hello, world!")
+    fmt.Fprint(w, "It Works!")
+}
+
+func positionTest(w http.ResponseWriter, r *http.Request) {
+    ctx := appengine.NewContext(r)
+	u := user.Current(ctx)
+	if u == nil {
+		writeResponse(w, "Unauthorized")
+		return
+	}
+	position := &Position{}
+	if readRequest(r, position) != nil {
+		writeResponse(w, "Unreadable Request")
+		log.Errorf(ctx, "Unredable request received")
+		return
+	}
+	bytes, _ := json.Marshal(position);
+	w.Write(bytes)
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
