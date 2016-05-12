@@ -27,9 +27,14 @@ type BusOperation struct {
 	Operation	string
 }
 
+type AuthenticationRequest struct {
+	Email 		string
+	Password 	string
+}
 
 func init() {
     http.HandleFunc("/", home)
+	http.HandleFunc("/login", login)
 	http.HandleFunc("/position/log", logPosition)
 	http.HandleFunc("/busses/available", bussesAvailable)
 	http.HandleFunc("/busses/drive", driveBus)
@@ -45,13 +50,32 @@ func home(w http.ResponseWriter, r *http.Request) {
     fmt.Fprint(w, "It Works!")
 }
 
-func positionTest(w http.ResponseWriter, r *http.Request) {
-    ctx := appengine.NewContext(r)
-	u := user.Current(ctx)
-	if u == nil {
-		writeResponse(w, "Unauthorized")
+func login(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	request := &AuthenticationRequest{}
+	if readRequest(r, request) != nil {
+		writeResponse(w, "Unreadable Request")
+		log.Errorf(ctx, "Unredable request received")
 		return
 	}
+	driver, _ := getDriver(ctx, request.Email)
+	if driver == nil {
+		writeResponse(w, "Unauthorized")
+		return;
+	}
+	if driver.Email == request.Email && driver.Password == request.Password{
+		writeResponse(w, "Success")
+		return;
+	}
+	writeResponse(w, "Unauthorized")
+}
+
+func positionTest(w http.ResponseWriter, r *http.Request) {
+    uEmail := getUserEmail(r)
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
+	}
+	ctx := appengine.NewContext(r)
 	position := &Position{}
 	if readRequest(r, position) != nil {
 		writeResponse(w, "Unreadable Request")
@@ -68,6 +92,10 @@ func logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func busLocation(w http.ResponseWriter, r *http.Request){
+	uEmail := getUserEmail(r)
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
+	}
 	ctx := appengine.NewContext(r)
 	query := r.URL.Query()
 	nbr, err := strconv.Atoi(query.Get("busNumber"))
@@ -97,6 +125,10 @@ func busLocation(w http.ResponseWriter, r *http.Request){
 }
 
 func adminBus(w http.ResponseWriter, r *http.Request){
+	uEmail := getUserEmail(r)
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
+	}
 	ctx := appengine.NewContext(r)
 	busOp := &BusOperation{}
 	if readRequest(r, busOp) != nil{
@@ -123,12 +155,6 @@ func adminBus(w http.ResponseWriter, r *http.Request){
 
 func adminDriver(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
-	u := user.Current(ctx)
-	if u.Email != "bahus.vel@gmail.com" {
-		writeResponse(w, "Unauthorized")
-		return
-	}
-
 	operation := &DriverOperation{}
 	if readRequest(r, operation) != nil{
 		writeResponse(w, "Unreadable Request")
@@ -157,7 +183,10 @@ func bussesAvailable(w http.ResponseWriter, r *http.Request){
 
 func driveBus(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
-	u := user.Current(ctx)
+	uEmail := getUserEmail(r)
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
+	}
 
 	driveBus := &BusOperation{}
 	if readRequest(r, driveBus) != nil{
@@ -173,7 +202,7 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	driver, uk := getDriver(ctx, u.Email)
+	driver, uk := getDriver(ctx, uEmail)
 
 	switch driveBus.Operation {
 	case "drive":
@@ -194,10 +223,9 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 
 func logPosition(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
-	u := user.Current(ctx)
-	if u == nil {
+	uEmail := getUserEmail(r)
+	if uEmail == "" {
 		writeResponse(w, "Unauthorized")
-		return
 	}
 	position := &Position{}
 	if readRequest(r, position) != nil {
@@ -205,7 +233,7 @@ func logPosition(w http.ResponseWriter, r *http.Request){
 		log.Errorf(ctx, "Unredable request received")
 		return
 	}
-	driver, _ := getDriver(ctx, u.Email)
+	driver, _ := getDriver(ctx, uEmail)
 	if driver.CurrentBusTrip == "" {
 		writeResponse(w, "Not Driving Anything")
 		return
@@ -235,6 +263,15 @@ func readRequest(r *http.Request, into interface{}) error {
 func writeResponse(w http.ResponseWriter, message string){
 	res, _ := json.Marshal(GenericResponse{Reponse:message})
 	w.Write(res)
+}
+
+func getUserEmail(r *http.Request) string{
+	ctx := appengine.NewContext(r)
+	u := user.Current(ctx)
+	if u == nil{
+		return ""
+	}
+	return u.Email
 }
 
 func driverExists(drivers []string, driver string) bool{

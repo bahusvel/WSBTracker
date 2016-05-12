@@ -1,4 +1,4 @@
-package main
+package httpserver
 
 import (
 	"encoding/json"
@@ -6,7 +6,6 @@ import (
 	"bytes"
 	//"fmt"
 	"io/ioutil"
-	"fmt"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/urlfetch"
 )
@@ -60,16 +59,12 @@ func sendNotification(data []byte, client *http.Client) (*Response, error) {
 	return &response, err
 }
 
-func gcmPush(ctx context.Context, message *PushNotification) error {
+func gcmPush(ctx context.Context, message *PushNotificaiton) error {
 	client := urlfetch.Client(ctx)
-	notifs, err := newNotificaiton(message.Title, message.Body, true, message.To)
+	notifs, err := newNotificaiton(message.Title, message.Message, true, message.To)
 	if err != nil {
 		return err
 	}
 	sendNotification(notifs, client)
 	return nil
-}
-
-func main(){
-	testNotification()
 }

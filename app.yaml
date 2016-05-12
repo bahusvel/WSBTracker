@@ -4,17 +4,10 @@ runtime: go
 api_version: go1
 
 handlers:
-- url: /position/.*
-  script: _go_app
-  login: required
-
-- url: /busses/.*
-  script: _go_app
-  login: required
 
 - url: /admin/.*
   script: _go_app
-  login: required
+  login: admin
 
 - url: /.*
   script: _go_app

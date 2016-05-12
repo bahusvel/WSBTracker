@@ -39,6 +39,7 @@ type Organization struct {
 
 type Driver struct {
 	Email          string
+	Password	   string
 	Name           string
 	CurrentBusTrip string
 	CurrentBus		int
