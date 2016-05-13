@@ -10,7 +10,8 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"strconv"
-	//"golang.org/x/net/context"
+	"crypto/rand"
+	"golang.org/x/net/context"
 )
 
 type GenericResponse struct {
@@ -25,11 +26,17 @@ type DriverOperation struct{
 type BusOperation struct {
 	Bus			Bus
 	Operation	string
+	Token 	string
 }
 
 type AuthenticationRequest struct {
 	Email 		string
 	Password 	string
+}
+
+type PositionRequest struct {
+	Position
+	Token string
 }
 
 func init() {
@@ -58,31 +65,38 @@ func login(w http.ResponseWriter, r *http.Request) {
 		log.Errorf(ctx, "Unredable request received")
 		return
 	}
-	driver, _ := getDriver(ctx, request.Email)
+	driver, key := getDriver(ctx, request.Email)
 	if driver == nil {
 		writeResponse(w, "Unauthorized")
 		return;
 	}
 	if driver.Email == request.Email && driver.Password == request.Password{
-		writeResponse(w, "Success")
+		token := generateToken()
+		driver.Token = token
+		if _, err := datastore.Put(ctx, key, driver); err != nil{
+			log.Errorf(ctx, "Failed to put in datastore %v", err)
+		}
+		writeResponse(w, token)
 		return;
 	}
 	writeResponse(w, "Unauthorized")
 }
 
 func positionTest(w http.ResponseWriter, r *http.Request) {
-    uEmail := getUserEmail(r)
-	if uEmail == "" {
-		writeResponse(w, "Unauthorized")
-	}
 	ctx := appengine.NewContext(r)
-	position := &Position{}
-	if readRequest(r, position) != nil {
+	position := &PositionRequest{}
+	if err := readRequest(r, position); err != nil {
 		writeResponse(w, "Unreadable Request")
-		log.Errorf(ctx, "Unredable request received")
+		log.Errorf(ctx, "Unredable request received", err)
 		return
 	}
-	bytes, _ := json.Marshal(position);
+    uEmail := getUserEmail(ctx, position.Token)
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
+		return
+	}
+
+	bytes, _ := json.Marshal(position.Position);
 	w.Write(bytes)
 }
 
@@ -92,15 +106,16 @@ func logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func busLocation(w http.ResponseWriter, r *http.Request){
-	uEmail := getUserEmail(r)
-	if uEmail == "" {
-		writeResponse(w, "Unauthorized")
-	}
 	ctx := appengine.NewContext(r)
 	query := r.URL.Query()
 	nbr, err := strconv.Atoi(query.Get("busNumber"))
 	if err != nil {
 		writeResponse(w, "Invalid Request")
+		return
+	}
+	uEmail := getUserEmail(ctx, query.Get("token"))
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
 		return
 	}
 	bus, bk, err := getBus(ctx, nbr, "unitec")
@@ -125,15 +140,17 @@ func busLocation(w http.ResponseWriter, r *http.Request){
 }
 
 func adminBus(w http.ResponseWriter, r *http.Request){
-	uEmail := getUserEmail(r)
-	if uEmail == "" {
-		writeResponse(w, "Unauthorized")
-	}
 	ctx := appengine.NewContext(r)
 	busOp := &BusOperation{}
 	if readRequest(r, busOp) != nil{
 		writeResponse(w, "Unreadable Request")
 		log.Errorf(ctx, "Unredable request received")
+		return
+	}
+
+	uEmail := getUserEmail(ctx, busOp.Token)
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
 		return
 	}
 
@@ -183,15 +200,16 @@ func bussesAvailable(w http.ResponseWriter, r *http.Request){
 
 func driveBus(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
-	uEmail := getUserEmail(r)
-	if uEmail == "" {
-		writeResponse(w, "Unauthorized")
-	}
-
 	driveBus := &BusOperation{}
 	if readRequest(r, driveBus) != nil{
 		writeResponse(w, "Unreadable Request")
 		log.Errorf(ctx, "Unredable request received")
+		return
+	}
+
+	uEmail := getUserEmail(ctx, driveBus.Token)
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
 		return
 	}
 
@@ -223,22 +241,24 @@ func driveBus(w http.ResponseWriter, r *http.Request){
 
 func logPosition(w http.ResponseWriter, r *http.Request){
 	ctx := appengine.NewContext(r)
-	uEmail := getUserEmail(r)
-	if uEmail == "" {
-		writeResponse(w, "Unauthorized")
-	}
-	position := &Position{}
+	position := &PositionRequest{}
 	if readRequest(r, position) != nil {
 		writeResponse(w, "Unreadable Request")
 		log.Errorf(ctx, "Unredable request received")
 		return
 	}
+	uEmail := getUserEmail(ctx, position.Token)
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
+		return
+	}
+
 	driver, _ := getDriver(ctx, uEmail)
 	if driver.CurrentBusTrip == "" {
 		writeResponse(w, "Not Driving Anything")
 		return
 	}
-	err := storePosition(ctx, driver.CurrentBusTrip, driver.CurrentBus, position, "unitec")
+	err := storePosition(ctx, driver.CurrentBusTrip, driver.CurrentBus, &position.Position, "unitec")
 	if err != nil {
 		writeResponse(w, "Position Store Failed")
 		return
@@ -250,10 +270,12 @@ func logPosition(w http.ResponseWriter, r *http.Request){
 
 
 func readRequest(r *http.Request, into interface{}) error {
-	body, err := ioutil.ReadAll(r.Body)
+	reader := r.Body
+	body, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
 	}
+
 	if err = json.Unmarshal(body, into); err  != nil {
 		return err
 	}
@@ -265,13 +287,13 @@ func writeResponse(w http.ResponseWriter, message string){
 	w.Write(res)
 }
 
-func getUserEmail(r *http.Request) string{
-	ctx := appengine.NewContext(r)
-	u := user.Current(ctx)
-	if u == nil{
+func getUserEmail(ctx context.Context, token string) string{
+	log.Infof(ctx, "Token", token)
+	driver := getDriverByToken(ctx, token)
+	if driver == nil{
 		return ""
 	}
-	return u.Email
+	return driver.Email
 }
 
 func driverExists(drivers []string, driver string) bool{
@@ -281,5 +303,15 @@ func driverExists(drivers []string, driver string) bool{
 		}
 	}
 	return false
+}
+
+func generateToken() string{
+    const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    var bytes = make([]byte, 32)
+    rand.Read(bytes)
+    for i, b := range bytes {
+        bytes[i] = alphanum[b % byte(len(alphanum))]
+    }
+    return string(bytes)
 }
 

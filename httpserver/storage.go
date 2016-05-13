@@ -40,6 +40,7 @@ type Organization struct {
 type Driver struct {
 	Email          string
 	Password	   string
+	Token		   string
 	Name           string
 	CurrentBusTrip string
 	CurrentBus		int
@@ -62,6 +63,18 @@ func getDriver(ctx context.Context, email string) (*Driver, *datastore.Key){
 		return nil, uk
 	}
 	return driver, uk
+}
+
+func getDriverByToken(ctx context.Context, token string) (*Driver){
+	q := datastore.NewQuery("Driver").Filter("Token =", token)
+	var drivers []Driver
+	 if _, err := q.GetAll(ctx, &drivers); err != nil {
+		 log.Errorf(ctx, "Could not retrieve driver by token", err)
+	 }
+	if len(drivers) == 0 {
+		return nil
+	}
+	return &(drivers[0])
 }
 
 func newOrGetBusTrip(ctx context.Context, busNumber int, organizationid string) (string, error){
