@@ -51,7 +51,6 @@ type BusTrip struct {
 	ID				string
 	BusNumber		int
 	Drivers 		[]string
-	Children		[]Child
 }
 
 func getDriver(ctx context.Context, email string) (*Driver, *datastore.Key){
@@ -70,6 +69,7 @@ func getDriverByToken(ctx context.Context, token string) (*Driver){
 	var drivers []Driver
 	 if _, err := q.GetAll(ctx, &drivers); err != nil {
 		 log.Errorf(ctx, "Could not retrieve driver by token", err)
+		 return nil
 	 }
 	if len(drivers) == 0 {
 		return nil

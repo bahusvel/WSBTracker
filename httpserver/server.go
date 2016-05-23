@@ -113,11 +113,14 @@ func busLocation(w http.ResponseWriter, r *http.Request){
 		writeResponse(w, "Invalid Request")
 		return
 	}
+
+	log.Infof(ctx, query.Get("token"))
 	uEmail := getUserEmail(ctx, query.Get("token"))
 	if uEmail == "" {
 		writeResponse(w, "Unauthorized")
 		return
 	}
+
 	bus, bk, err := getBus(ctx, nbr, "unitec")
 	if err != nil {
 		writeResponse(w, "Bus Not Found")
@@ -147,11 +150,16 @@ func adminBus(w http.ResponseWriter, r *http.Request){
 		log.Errorf(ctx, "Unredable request received")
 		return
 	}
-
+/*
 	uEmail := getUserEmail(ctx, busOp.Token)
 	if uEmail == "" {
 		writeResponse(w, "Unauthorized")
 		return
+	}
+*/
+	u := user.Current(ctx)
+	if u.Email != "bahus.vel@gmail.com" {
+		writeResponse(w, "Only admin can do that")
 	}
 
 	switch busOp.Operation {

@@ -9,20 +9,36 @@
     </CLASSES>
     <SOURCES />
     <excluded>
-      <root url="file://$USER_HOME$/go/src/github.com/golang/protobuf/proto/testdata" />
-      <root url="file://$USER_HOME$/go/src/github.com/ugorji/go/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/docker/docker/pkg/tarsum/testdata" />
+      <root url="file://$USER_HOME$/go/src/github.com/docker/docker/docs/reference/api/_static" />
       <root url="file://$USER_HOME$/go/src/golang.org/x/net/html/charset/testdata" />
+      <root url="file://$USER_HOME$/go/src/github.com/fsouza/go-dockerclient/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/opencontainers/runc/tests/integration/testdata" />
       <root url="file://$USER_HOME$/go/src/google.golang.org/appengine/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/codegangsta/cli/.git" />
       <root url="file://$USER_HOME$/go/src/golang.org/x/net/http2/testdata" />
+      <root url="file://$USER_HOME$/go/src/github.com/docker/docker/.github" />
       <root url="file://$USER_HOME$/go/src/github.com/nu7hatch/gouuid/.git" />
       <root url="file://$USER_HOME$/go/src/github.com/bahusvel/COR-Framework-Go/.git" />
-      <root url="file://$USER_HOME$/go/src/golang.org/x/net/.git" />
       <root url="file://$USER_HOME$/go/src/gopkg.in/mgo.v2/.git" />
       <root url="file://$USER_HOME$/go/src/github.com/golang/protobuf/.git" />
       <root url="file://$USER_HOME$/go/src/github.com/bahusvel/COR-Framework-Go/.idea" />
-      <root url="file://$USER_HOME$/go/src/golang.org/x/net/html/testdata" />
+      <root url="file://$USER_HOME$/go/src/github.com/opencontainers/runc/Godeps/_workspace" />
       <root url="file://$PROJECT_DIR$" />
       <root url="file://$USER_HOME$/go/src/github.com/golang/protobuf/protoc-gen-go/testdata" />
+      <root url="file://$USER_HOME$/go/src/github.com/docker/docker/pkg/archive/testdata" />
+      <root url="file://$USER_HOME$/go/src/github.com/docker/docker/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/golang/protobuf/proto/testdata" />
+      <root url="file://$USER_HOME$/go/src/github.com/hashicorp/go-cleanhttp/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/opencontainers/runc/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/ugorji/go/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/docker/docker/hack/make/.resources-windows" />
+      <root url="file://$USER_HOME$/go/src/github.com/docker/docker/hack/make/.build-deb" />
+      <root url="file://$USER_HOME$/go/src/github.com/docker/go-units/.git" />
+      <root url="file://$USER_HOME$/go/src/golang.org/x/net/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/Sirupsen/logrus/.git" />
+      <root url="file://$USER_HOME$/go/src/github.com/docker/docker/hack/make/.build-rpm" />
+      <root url="file://$USER_HOME$/go/src/golang.org/x/net/html/testdata" />
     </excluded>
   </library>
 </component>
