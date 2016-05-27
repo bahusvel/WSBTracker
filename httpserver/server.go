@@ -29,6 +29,11 @@ type BusOperation struct {
 	Token 	string
 }
 
+type PushTokenRequest struct {
+	PushToken string
+	AuthToken string
+}
+
 type AuthenticationRequest struct {
 	Email 		string
 	Password 	string
@@ -49,6 +54,7 @@ func init() {
 	http.HandleFunc("/admin/driver", adminDriver)
 	http.HandleFunc("/admin/bus", adminBus)
 	http.HandleFunc("/position/test", positionTest)
+	http.HandleFunc("/push/token", pushToken)
 	http.HandleFunc("/logout", logout)
 }
 
@@ -56,6 +62,7 @@ func init() {
 func home(w http.ResponseWriter, r *http.Request) {
     fmt.Fprint(w, "It Works!")
 }
+
 
 func login(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
@@ -80,6 +87,31 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return;
 	}
 	writeResponse(w, "Unauthorized")
+}
+
+func pushToken(w http.ResponseWriter, r *http.Request){
+	ctx := appengine.NewContext(r)
+	tokenRequest := &PushTokenRequest{}
+	if err := readRequest(r, tokenRequest); err != nil {
+		writeResponse(w, "Unreadable Request")
+		log.Errorf(ctx, "Unredable request received", err)
+		return
+	}
+    uEmail := getUserEmail(ctx, tokenRequest.AuthToken)
+	if uEmail == "" {
+		writeResponse(w, "Unauthorized")
+		return
+	}
+
+	driver, key := getDriver(ctx, uEmail)
+	if driver == nil {
+		writeResponse(w, "Unauthorized")
+		return;
+	}
+	driver.PushToken = tokenRequest.PushToken
+	if _, err := datastore.Put(ctx, key, driver); err != nil{
+		log.Errorf(ctx, "Failed to put in datastore %v", err)
+	}
 }
 
 func positionTest(w http.ResponseWriter, r *http.Request) {

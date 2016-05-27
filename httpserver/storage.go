@@ -45,6 +45,7 @@ type Driver struct {
 	CurrentBusTrip string
 	CurrentBus		int
 	AllowedToDrive []int
+	PushToken	   string
 }
 
 type BusTrip struct {
