@@ -112,6 +112,7 @@ func pushToken(w http.ResponseWriter, r *http.Request){
 	if _, err := datastore.Put(ctx, key, driver); err != nil{
 		log.Errorf(ctx, "Failed to put in datastore %v", err)
 	}
+	writeResponse(w, "Success")
 }
 
 func positionTest(w http.ResponseWriter, r *http.Request) {
@@ -182,13 +183,7 @@ func adminBus(w http.ResponseWriter, r *http.Request){
 		log.Errorf(ctx, "Unredable request received")
 		return
 	}
-/*
-	uEmail := getUserEmail(ctx, busOp.Token)
-	if uEmail == "" {
-		writeResponse(w, "Unauthorized")
-		return
-	}
-*/
+
 	u := user.Current(ctx)
 	if u.Email != "bahus.vel@gmail.com" {
 		writeResponse(w, "Only admin can do that")
@@ -304,6 +299,7 @@ func logPosition(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	writeResponse(w, "Success")
+	checkTriggers(ctx, position.Position)
 	log.Infof(ctx, "Position Store Successful, latitude: %f, longitude: %f", position.Latitude, position.Longitude)
 }
 

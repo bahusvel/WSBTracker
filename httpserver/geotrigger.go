@@ -1,14 +1,55 @@
 package httpserver
 
 import (
+	"google.golang.org/appengine/log"
+	"golang.org/x/net/context"
+	"math"
 	"encoding/json"
 	"net/http"
 	"bytes"
-	//"fmt"
 	"io/ioutil"
-	"golang.org/x/net/context"
 	"google.golang.org/appengine/urlfetch"
 )
+
+const (
+	// According to Wikipedia, the Earth's radius is about 6,371km
+	EARTH_RADIUS = 6371 * 1000
+)
+
+func checkTriggers(ctx context.Context, busPosition Position) {
+	triggers := getGeoTriggers(ctx, 0, 0); // near arguments are ignored
+	for _, trigger := range triggers {
+		if trigger.distanceTo(busPosition.Latitude, busPosition.Longitude) < 100 {
+			log.Infof(ctx, "Going to notify these people: ", trigger.NotifyDrivers)
+			for _, driverEmail := range trigger.NotifyDrivers {
+				driver, _ := getDriver(ctx, driverEmail)
+				if driver != nil {
+					notification := PushNotificaiton{To: driver.PushToken, Title:"Bus Arrived", Message:"Bus Arrived"}
+					gcmPush(ctx, &notification)
+				}
+			}
+		}
+	}
+}
+
+// Calculates the Haversine distance between two points in meters.
+// Original Implementation from: http://www.movable-type.co.uk/scripts/latlong.html
+func (p *GeoTrigger) distanceTo(latitude2 float64, longitude2 float64) float64 {
+	dLat := (latitude2 - p.Latitude) * (math.Pi / 180.0)
+	dLon := (longitude2 - p.Longitude) * (math.Pi / 180.0)
+
+	lat1 := p.Latitude * (math.Pi / 180.0)
+	lat2 := latitude2 * (math.Pi / 180.0)
+
+	a1 := math.Sin(dLat/2) * math.Sin(dLat/2)
+	a2 := math.Sin(dLon/2) * math.Sin(dLon/2) * math.Cos(lat1) * math.Cos(lat2)
+
+	a := a1 + a2
+
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return EARTH_RADIUS * c
+}
 
 type Response struct {
 	MulticastID  int64    `json:"multicast_id"`
@@ -32,7 +73,7 @@ type PushNotificaiton struct {
 
 const API_KEY string = ""
 
-func newNotificaiton(title string, body string, content bool, to string) ([]byte, error){
+func newNotification(title string, body string, content bool, to string) ([]byte, error){
 	notifbody := map[string]interface{}{"title": title, "body":body, "sound":"default"}
 	full := map[string]interface{}{"to": to, "notification": notifbody, "content_available":content}
 	b, err := json.Marshal(full)
@@ -61,7 +102,7 @@ func sendNotification(data []byte, client *http.Client) (*Response, error) {
 
 func gcmPush(ctx context.Context, message *PushNotificaiton) error {
 	client := urlfetch.Client(ctx)
-	notifs, err := newNotificaiton(message.Title, message.Message, true, message.To)
+	notifs, err := newNotification(message.Title, message.Message, true, message.To)
 	if err != nil {
 		return err
 	}

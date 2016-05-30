@@ -54,6 +54,31 @@ type BusTrip struct {
 	Drivers 		[]string
 }
 
+type GeoTrigger struct {
+	Latitude 		float64
+	Longitude 		float64
+	NotifyDrivers	[]string
+}
+
+func getGeoTriggers(ctx context.Context, NearLatitude float64, NearLongitude float64) ([]GeoTrigger){
+	q := datastore.NewQuery("GeoTrigger")
+	var triggers []GeoTrigger
+	if _, err := q.GetAll(ctx, &triggers); err != nil {
+		log.Errorf(ctx, "Could not retrieve triggers", err)
+		return triggers
+	}
+	return triggers
+}
+
+func storeGeoTrigger(ctx context.Context, trigger *GeoTrigger) error{
+	key := datastore.NewKey(ctx, "GeoTrigger", "", 0, nil)
+	if _, err := datastore.Put(ctx, key, trigger); err != nil {
+		log.Errorf(ctx, "Failed to put in datastore %v", err)
+		return err
+	}
+	return nil
+}
+
 func getDriver(ctx context.Context, email string) (*Driver, *datastore.Key){
 	uk := datastore.NewKey(ctx, "Driver", email, 0, nil)
 
@@ -68,10 +93,10 @@ func getDriver(ctx context.Context, email string) (*Driver, *datastore.Key){
 func getDriverByToken(ctx context.Context, token string) (*Driver){
 	q := datastore.NewQuery("Driver").Filter("Token =", token)
 	var drivers []Driver
-	 if _, err := q.GetAll(ctx, &drivers); err != nil {
-		 log.Errorf(ctx, "Could not retrieve driver by token", err)
-		 return nil
-	 }
+	if _, err := q.GetAll(ctx, &drivers); err != nil {
+		log.Errorf(ctx, "Could not retrieve driver by token", err)
+		return nil
+	}
 	if len(drivers) == 0 {
 		return nil
 	}
