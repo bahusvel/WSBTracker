@@ -53,6 +53,7 @@ func init() {
 	http.HandleFunc("/busses/location", busLocation)
 	http.HandleFunc("/admin/driver", adminDriver)
 	http.HandleFunc("/admin/bus", adminBus)
+	http.HandleFunc("/admin/geotrigger", adminGeoTrigger)
 	http.HandleFunc("/position/test", positionTest)
 	http.HandleFunc("/push/token", pushToken)
 	http.HandleFunc("/logout", logout)
@@ -63,6 +64,19 @@ func home(w http.ResponseWriter, r *http.Request) {
     fmt.Fprint(w, "It Works!")
 }
 
+func adminGeoTrigger(w http.ResponseWriter, r *http.Request){
+	ctx := appengine.NewContext(r)
+	trigger := &GeoTrigger{}
+	if readRequest(r, trigger) != nil{
+		writeResponse(w, "Unreadable Request")
+		log.Errorf(ctx, "Unredable request received")
+		return
+	}
+
+	storeGeoTrigger(ctx, trigger)
+
+	writeResponse(w, "Success")
+}
 
 func login(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
@@ -77,6 +91,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 		writeResponse(w, "Unauthorized")
 		return;
 	}
+	notification := PushNotificaiton{To: driver.PushToken, Title:"Logged In", Message:"Hi"}
+	gcmPush(ctx, &notification)
+	log.Infof(ctx, "Notification should be sent")
 	if driver.Email == request.Email && driver.Password == request.Password{
 		token := generateToken()
 		driver.Token = token
@@ -299,7 +316,7 @@ func logPosition(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	writeResponse(w, "Success")
-	checkTriggers(ctx, position.Position)
+	checkTriggers(ctx, position.Position) //Enable this for push notifications
 	log.Infof(ctx, "Position Store Successful, latitude: %f, longitude: %f", position.Latitude, position.Longitude)
 }
 

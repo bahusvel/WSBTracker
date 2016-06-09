@@ -19,11 +19,11 @@ const (
 func checkTriggers(ctx context.Context, busPosition Position) {
 	triggers := getGeoTriggers(ctx, 0, 0); // near arguments are ignored
 	for _, trigger := range triggers {
-		if trigger.distanceTo(busPosition.Latitude, busPosition.Longitude) < 100 {
+		if trigger.distanceTo(busPosition.Latitude, busPosition.Longitude) < 20 {
 			log.Infof(ctx, "Going to notify these people: ", trigger.NotifyDrivers)
 			for _, driverEmail := range trigger.NotifyDrivers {
 				driver, _ := getDriver(ctx, driverEmail)
-				if driver != nil {
+				if driver != nil && driver.PushToken != ""{
 					notification := PushNotificaiton{To: driver.PushToken, Title:"Bus Arrived", Message:"Bus Arrived"}
 					gcmPush(ctx, &notification)
 				}
@@ -86,6 +86,9 @@ func newNotification(title string, body string, content bool, to string) ([]byte
 func sendNotification(data []byte, client *http.Client) (*Response, error) {
 	req, _ := http.NewRequest("POST", "https://gcm-http.googleapis.com/gcm/send", bytes.NewBuffer(data))
 	req.Header.Set("Content-Type", "application/json")
+	if API_KEY == "" {
+		panic("YOUR API KEY IS EMPTY YOU NUB!!!")
+	}
 	req.Header.Set("Authorization", "key="+API_KEY)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -106,6 +109,8 @@ func gcmPush(ctx context.Context, message *PushNotificaiton) error {
 	if err != nil {
 		return err
 	}
-	sendNotification(notifs, client)
+	log.Infof(ctx, "Sending notification to", message.To)
+	response, err := sendNotification(notifs, client)
+	log.Infof(ctx, "Result of sending is: ", response, err)
 	return nil
 }
